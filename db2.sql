@@ -388,22 +388,16 @@ SELECT PROJNO,DAYS(PRENDATE)-DAYS(PRSTDATE) AS DAYS
 FROM DB2INST1.PROJECT
 WHERE DAYS(PRENDATE)-DAYS(PRSTDATE) LIKE (
     SELECT MIN(DAYS(PRENDATE)-DAYS(PRSTDATE))
-    FROM DB2INST1.PROJECT);
--- Problem 4
-SELECT * FROM DB2INST1.EMPLOYEE
-WHERE WORKDEPT IN (
-    SELECT DEPTNO
-    FROM DB2INST1.DEPARTMENT
-    WHERE DEPTNO NOT IN (
-        SELECT WORKDEPT
-        FROM (
-                 SELECT WORKDEPT, COUNT(SEX)
-                 FROM DB2INST1.EMPLOYEE
-                 WHERE SEX LIKE 'F'
-                 GROUP BY WORKDEPT
-             )
-    )
+    FROM DB2INST1.PROJECT
+    WHERE DAYS(PRENDATE) - DAYS(PRSTDATE) >= 0
 );
+-- Problem 4
+SELECT WORKDEPT FROM DB2INST1.EMPLOYEE
+WHERE WORKDEPT  NOT IN (
+    SELECT WORKDEPT
+    FROM DB2INST1.EMPLOYEE
+    WHERE SEX LIKE 'F'
+    GROUP BY WORKDEPT);
 -- Problem 5
 SELECT LASTNAME,
        JOB,
@@ -415,7 +409,13 @@ WHERE EDLEVEL = (SELECT EDLEVEL FROM DB2INST1.EMPLOYEE WHERE LASTNAME LIKE 'STER
   AND JOB = (SELECT JOB FROM DB2INST1.EMPLOYEE WHERE LASTNAME LIKE 'STERN')
     AND YEAR('2000-01-01')-YEAR(HIREDATE) >=0
 ORDER BY SALARY DESC;
-
+-- Problem 6
+SELECT LASTNAME
+FROM DB2INST1.EMPLOYEE
+WHERE BIRTHDATE = (
+    SELECT MAX(BIRTHDATE)
+    FROM DB2INST1.EMPLOYEE
+);
 -- Exercise 7 Maintaining Data
 -- Problem 1
 CREATE TABLE STDB262226.TESTEMP(
@@ -487,4 +487,69 @@ FROM DB2INST1.EMPLOYEE
 WHERE JOB <> 'MANAGER'
 GROUP BY WORKDEPT, JOB
 HAVING AVG(SALARY) > 28000
-ORDER BY 3 DESC
+ORDER BY 3 DESC;
+-- USER DEFINE FUNCTION
+-- CREATE FUNCTION palindrome ()
+--     RETURNS INTEGER
+--     NO EXTERNAL ACTION
+-- F1: BEGIN ATOMIC
+--     RETURN
+-- end;
+
+SELECT * FROM table ( minMaxSalaryDepartment('D'));
+
+SELECT LASTNAME,expos(EDLEVEL,2) from DB2INST1.EMPLOYEE;
+
+CREATE FUNCTION STDB262226.myDouble(x INTEGER)
+    RETURNS INTEGER NO EXTERNAL ACTION
+    BEGIN
+        RETURN (x*x);
+    end;
+CREATE FUNCTION STDB262226.leftRight6(x char(100))
+    RETURNS char(2) NO EXTERNAL ACTION
+    BEGIN
+        declare le char(1);
+        declare ri char(1);
+        declare answer char(2);
+        set le = left(x,1);
+        set ri = right(trim(x),1);
+        set answer = concat(le,ri);
+        RETURN answer ;
+    end;
+
+CREATE FUNCTION minMaxSalary()
+    RETURNS TABLE (
+        min1 DECIMAL(8,2),
+        max2 DECIMAL(8,2)
+        )
+    BEGIN ATOMIC
+        RETURN SELECT MIN(SALARY) AS min1,MAX(SALARY) AS max1 FROM DB2INST1.EMPLOYEE;
+    end;
+
+
+CREATE FUNCTION minMaxSalaryDepartment(st char(1))
+    RETURNS TABLE (
+        workDept CHARACTER(3),
+        min1 DECIMAL(8,2),
+        max2 DECIMAL(8,2)
+        )
+    BEGIN ATOMIC
+        RETURN SELECT WORKDEPT,MIN(SALARY) AS min1,MAX(SALARY) AS max1
+               FROM DB2INST1.EMPLOYEE
+               WHERE WORKDEPT like concat(st,'%')
+               GROUP BY WORKDEPT;
+    end;
+
+CREATE FUNCTION expos(a int, b int)
+    RETURNS INT
+    BEGIN ATOMIC
+        DECLARE answer INT;
+        DECLARE i INT;
+        SET answer = 1;
+        set i = 1;
+        WHILE (i<=b) do
+            SET answer = answer * a;
+            SET i = i+1;
+        end while ;
+        RETURN answer;
+    end;
